@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Radar BP" />
+  <title>Smart Radar Wishlist — Будапешт</title>
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Скрытие скроллбара для горизонтальной ленты категорий */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen pb-20 font-sans select-none">
+
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+  <header class="sticky top-0 z-30 bg-slate-900 text-white shadow-md">
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-bold tracking-tight flex items-center gap-1.5">
+          <span>📡</span> Smart Radar <span class="text-xs font-normal bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">BP</span>
+        </h1>
+        <p id="gps-status" class="text-[11px] text-slate-400 mt-0.5">GPS: Ожидание координат...</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Кнопка обновления GPS -->
+        <button id="btn-gps" onclick="updateGeolocation(true)" title="Обновить GPS"
+          class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 transition text-sm">
+          📍
+        </button>
+        <!-- Кнопка Импорта -->
+        <button onclick="openImportModal()"
+          class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition text-xs font-semibold flex items-center gap-1 shadow">
+          <span>📥</span> Импорт
+        </button>
+        <!-- Кнопка Настроек -->
+        <button onclick="openSettingsModal()" title="Настройки"
+          class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 transition text-sm">
+          ⚙️
+        </button>
+      </div>
+    </div>
+
+    <!-- ПЕРЕКЛЮЧАТЕЛЬ ЭКРАНОВ: РАДАР / АРХИВ -->
+    <div class="max-w-md mx-auto px-4 pb-2 flex gap-2">
+      <button id="tab-radar" onclick="switchView('radar')"
+        class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-900 shadow-sm transition">
+        📡 Радар <span id="count-radar" class="ml-1 px-1.5 py-0.2 bg-slate-200 rounded-full text-[10px]">0</span>
+      </button>
+      <button id="tab-archive" onclick="switchView('archive')"
+        class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+        📦 Архив <span id="count-archive" class="ml-1 px-1.5 py-0.2 bg-slate-700 rounded-full text-[10px]">0</span>
+      </button>
+    </div>
+
+    <!-- ФИЛЬТР КАТЕГОРИЙ (только для экрана Радар) -->
+    <div id="category-bar" class="max-w-md mx-auto px-4 py-2 bg-slate-800/70 border-t border-slate-800 flex gap-2 overflow-x-auto no-scrollbar">
+      <!-- Генерируется через JS -->
+    </div>
+  </header>
+
+  <!-- ОСНОВНОЙ КОНТЕНТ -->
+  <main class="max-w-md mx-auto px-3 pt-4">
+    <!-- Экран 1: Радар -->
+    <section id="view-radar" class="space-y-3"></section>
+
+    <!-- Экран 2: Архив -->
+    <section id="view-archive" class="hidden space-y-5"></section>
+  </main>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ВСЕЯДНЫЙ ИМПОРТ -->
+  <div id="modal-import" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold text-slate-900">📥 Всеядный импорт текста</h2>
+        <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-slate-500">
+        Скопируйте любое сообщение или диалог из чата о товарах и магазинах Будапешта. ИИ-парсер сам извлечет спецификации, венгерские термины, адреса и координаты.
+      </p>
+      <div class="flex gap-2">
+        <button onclick="pasteFromClipboard()"
+          class="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+          📋 Вставить из буфера обмена
+        </button>
+      </div>
+      <textarea id="import-textarea" rows="6"
+        placeholder="Вставьте сюда сырой текст из чата (или готовый JSON)..."
+        class="w-full rounded-xl border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 select-text"></textarea>
+
+      <div id="import-status" class="hidden text-xs p-3 rounded-xl bg-amber-50 text-amber-800 border border-amber-200"></div>
+
+      <div class="flex gap-2 pt-1">
+        <button onclick="closeImportModal()"
+          class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition">
+          Отмена
+        </button>
+        <button id="btn-parse" onclick="handleImportSubmit()"
+          class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 active:scale-95 transition shadow">
+          ✨ Распознать
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: НАСТРОЙКИ -->
+  <div id="modal-settings" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold text-slate-900">⚙️ Настройки</h2>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="space-y-1.5">
+        <label for="input-api-key" class="block text-xs font-semibold text-slate-700">
+          Бесплатный ключ GEMINI_API_KEY (Google AI Studio)
+        </label>
+        <input id="input-api-key" type="password" placeholder="AIzaSy..."
+          class="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 select-text" />
+        <p class="text-[11px] text-slate-500">
+          Ключ хранится исключительно в памяти вашего телефона (<code class="bg-slate-100 px-1 rounded">localStorage</code>) и используется для модели <code class="bg-slate-100 px-1 rounded">gemini-2.5-flash</code>.
+        </p>
+      </div>
+
+      <div class="pt-2 border-t border-slate-200 flex items-center justify-between">
+        <button onclick="exportDatabase()" class="text-xs text-slate-600 hover:text-slate-900 underline">
+          ⬇️ Скачать бэкап (JSON)
+        </button>
+        <button onclick="resetToDemo()" class="text-xs text-rose-600 hover:text-rose-700 underline">
+          Сбросить к демо-карточке
+        </button>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeSettingsModal()"
+          class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition">
+          Закрыть
+        </button>
+        <button onclick="saveSettings()"
+          class="flex-1 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition">
+          💾 Сохранить
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /********************************************************************
+     * 1. КОНСТАНТЫ И НАЧАЛЬНЫЕ ДАННЫЕ
+     ********************************************************************/
+    const STORAGE_KEY_DB = 'smart_radar_wishlist_db_v1';
+    const STORAGE_KEY_API = 'smart_radar_gemini_api_key';
+    const STORAGE_KEY_POS = 'smart_radar_last_pos';
+
+    // Дефолтные координаты (центр Будапешта — Deák Ferenc tér), если GPS еще не ответил
+    let userLocation = { lat: 47.4979, lon: 19.0540, isFallback: true };
+    let currentView = 'radar';
+    let selectedCategory = 'Все';
+
+    // Категории фильтра на главном экране
+    const CATEGORIES = [
+      { label: 'Все', match: ['Все'] },
+      { label: 'Одежда', match: ['Одежда'] },
+      { label: 'Арт', match: ['Арт'] },
+      { label: 'Бакалея', match: ['Бакалея', 'Бакалея/Чай'] },
+      { label: 'Растения/Сад', match: ['Растения/Сад', 'Дом/Сад'] },
+      { label: 'Аптека', match: ['Аптека', 'Косметика/Аптека'] },
+      { label: 'Электроника', match: ['Электроника'] },
+      { label: 'Другое', match: ['Другое'] }
+    ];
+
+    // Начальная карточка из ТЗ для демонстрации при первом открытии
+    const INITIAL_DEMO_DATA = [
+      {
+        id: "item_timestamp_1",
+        item: "Ремень мужской",
+        category: "Одежда",
+        specs: "Цельная кожа от 3.5 мм, монолитный пласт, литая пряжка",
+        labels_hu: "Valódi bőr, Marhabőr, Egy darabból álló bőr (избегать: Műbőr, Hasított bőr, Rostbőr)",
+        status: "active",
+        locations: [
+          {
+            name: "MrSale Öltönyüzlet",
+            address: "Weiner Leó u. 20 (Nyugati)",
+            lat: 47.5078,
+            lon: 19.0569,
+            hours: {
+              mon_fri: "10:00-19:00",
+              sat: "10:00-16:00",
+              sun: "closed"
+            }
+          }
+        ]
+      }
+    ];
+
+    /********************************************************************
+     * 2. ИНИЦИАЛИЗАЦИЯ И SERVICE WORKER
+     ********************************************************************/
+    window.addEventListener('DOMContentLoaded', () => {
+      registerServiceWorker();
+      loadSavedPosition();
+      initDatabase();
+      renderCategories();
+      renderAll();
+      updateGeolocation(false);
+    });
+
+    function registerServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+          console.warn('Service Worker не зарегистрирован:', err);
+        });
+      }
+    }
+
+    /********************************************************************
+     * 3. РАБОТА С LOCALSTORAGE И УМНОЕ СЛИЯНИЕ (SMART MERGE)
+     ********************************************************************/
+    function initDatabase() {
+      const raw = localStorage.getItem(STORAGE_KEY_DB);
+      if (!raw) {
+        localStorage.setItem(STORAGE_KEY_DB, JSON.stringify(INITIAL_DEMO_DATA));
+      }
+    }
+
+    function getDatabase() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_DB)) || [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveDatabase(data) {
+      localStorage.setItem(STORAGE_KEY_DB, JSON.stringify(data));
+      renderAll();
+    }
+
+    /**
+     * Умное слияние (Smart Merge):
+     * 1. Если в базе уже есть магазин с такими же координатами (в радиусе 40 м),
+     *    привязываем каноничные данные локации без дублирования точек.
+     * 2. Если товар с таким названием уже существует, дополняем его список филиалов.
+     */
+    function mergeImportedItems(newItems) {
+      const db = getDatabase();
+
+      // Собираем справочник уже известных локаций для избежания дублей координат
+      const knownLocations = [];
+      db.forEach(entry => {
+        (entry.locations || []).forEach(loc => {
+          if (typeof loc.lat === 'number' && typeof loc.lon === 'number') {
+            knownLocations.push(loc);
+          }
+        });
+      });
+
+      newItems.forEach((incoming, idx) => {
+        if (!incoming || !incoming.item) return;
+
+        // Нормализация локаций нового товара через поиск существующих координат
+        const normalizedLocations = (incoming.locations || []).map(loc => {
+          const lat = parseFloat(loc.lat);
+          const lon = parseFloat(loc.lon);
+          if (isNaN(lat) || isNaN(lon)) return null;
+
+          // Проверяем, есть ли уже магазин в радиусе 40 метров
+          const existingStore = knownLocations.find(
+            k => calculateHaversineMeters(k.lat, k.lon, lat, lon) < 40
+          );
+
+          if (existingStore) {
+            return { ...existingStore };
+          }
+
+          const cleanLoc = {
+            name: loc.name || 'Магазин в Будапеште',
+            address: loc.address || 'Будапешт',
+            lat: lat,
+            lon: lon,
+            hours: {
+              mon_fri: loc.hours?.mon_fri || '09:00-18:00',
+              sat: loc.hours?.sat || '10:00-15:00',
+              sun: loc.hours?.sun || 'closed'
+            }
+          };
+          knownLocations.push(cleanLoc);
+          return cleanLoc;
+        }).filter(Boolean);
+
+        // Проверяем, есть ли уже такой товар в базе
+        const existingItem = db.find(
+          x => x.item.trim().toLowerCase() === incoming.item.trim().toLowerCase()
+        );
+
+        if (existingItem) {
+          existingItem.status = 'active';
+          if (incoming.specs) existingItem.specs = incoming.specs;
+          if (incoming.labels_hu) existingItem.labels_hu = incoming.labels_hu;
+          if (incoming.category) existingItem.category = incoming.category;
+
+          normalizedLocations.forEach(newLoc => {
+            const alreadyInItem = (existingItem.locations || []).some(
+              l => calculateHaversineMeters(l.lat, l.lon, newLoc.lat, newLoc.lon) < 40
+            );
+            if (!alreadyInItem) {
+              existingItem.locations.push(newLoc);
+            }
+          });
+        } else {
+          db.push({
+            id: incoming.id || `item_${Date.now()}_${idx}`,
+            item: incoming.item.trim(),
+            category: incoming.category || 'Другое',
+            specs: incoming.specs || 'Без особых примечаний',
+            labels_hu: incoming.labels_hu || '—',
+            status: incoming.status === 'archived' ? 'archived' : 'active',
+            locations: normalizedLocations.length > 0 ? normalizedLocations : [
+              {
+                name: "Центр Будапешта (уточнить адрес)",
+                address: "Budapest, Deák Ferenc tér",
+                lat: 47.4979,
+                lon: 19.0540,
+                hours: { mon_fri: "09:00-19:00", sat: "10:00-16:00", sun: "closed" }
+              }
+            ]
+          });
+        }
+      });
+
+      saveDatabase(db);
+    }
+
+    /********************************************************************
+     * 4. ГЕОЛОКАЦИЯ И ФОРМУЛА ГАВЕРСИНУСА (HAVERSINE)
+     ********************************************************************/
+    function loadSavedPosition() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY_POS));
+        if (saved && typeof saved.lat === 'number' && typeof saved.lon === 'number') {
+          userLocation = { lat: saved.lat, lon: saved.lon, isFallback: false };
+        }
+      } catch (e) {}
+    }
+
+    function updateGeolocation(manualTrigger = false) {
+      const statusEl = document.getElementById('gps-status');
+      const btnGps = document.getElementById('btn-gps');
+
+      if (!('geolocation' in navigator)) {
+        statusEl.textContent = 'GPS не поддерживается (центр Будапешта)';
+        return;
+      }
+
+      statusEl.textContent = 'GPS: Поиск спутников...';
+      btnGps.classList.add('animate-pulse');
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          btnGps.classList.remove('animate-pulse');
+          userLocation = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            isFallback: false
+          };
+          localStorage.setItem(STORAGE_KEY_POS, JSON.stringify(userLocation));
+          const acc = Math.round(pos.coords.accuracy);
+          statusEl.textContent = `GPS активен (±${acc} м) • ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
+          renderAll();
+        },
+        err => {
+          btnGps.classList.remove('animate-pulse');
+          if (userLocation.isFallback) {
+            statusEl.textContent = 'GPS отключен • Расчет от Deák Ferenc tér';
+          } else {
+            statusEl.textContent = `GPS: последние координаты (${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)})`;
+          }
+          if (manualTrigger) {
+            alert('Не удалось получить доступ к GPS. Проверьте разрешения геолокации для браузера.');
+          }
+          renderAll();
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    }
+
+    // Возвращает точное расстояние в метрах по формуле Haversine
+    function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Радиус Земли в метрах
+      const toRad = deg => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function formatDistance(meters) {
+      if (meters < 1000) {
+        return `${Math.round(meters)} м`;
+      }
+      return `${(meters / 1000).toFixed(1)} км`;
+    }
+
+    /********************************************************************
+     * 5. ПРОВЕРКА ЧАСОВ РАБОТЫ МАГАЗИНА (HOURS)
+     ********************************************************************/
+    function evaluateStoreHours(hoursObj) {
+      if (!hoursObj) {
+        return { isOpen: false, badgeText: '⚪ График не указан', scheduleText: 'Нет данных' };
+      }
+
+      const now = new Date();
+      const day = now.getDay(); // 0 - Вс, 1..5 - Пн..Пт, 6 - Сб
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      let todaySchedule = hoursObj.mon_fri || 'closed';
+      if (day === 6) todaySchedule = hoursObj.sat || 'closed';
+      if (day === 0) todaySchedule = hoursObj.sun || 'closed';
+
+      const scheduleTooltip =
+        `Пн–Пт: ${hoursObj.mon_fri || 'closed'}\n` +
+        `Сб: ${hoursObj.sat || 'closed'}\n` +
+        `Вс: ${hoursObj.sun || 'closed'}`;
+
+      const cleanStr = String(todaySchedule).trim().toLowerCase();
+      if (cleanStr === 'closed' || cleanStr === 'закрыто' || cleanStr === 'zárva' || !cleanStr.includes('-')) {
+        return {
+          isOpen: false,
+          badgeText: '🔴 Закрыто',
+          scheduleText: scheduleTooltip
+        };
+      }
+
+      // Парсинг интервала вида "10:00-19:00"
+      const [startStr, endStr] = cleanStr.split('-').map(s => s.trim());
+      const parseTime = str => {
+        const [h, m] = str.split(':').map(Number);
+        if (isNaN(h)) return null;
+        return h * 60 + (isNaN(m) ? 0 : m);
+      };
+
+      const openMin = parseTime(startStr);
+      const closeMin = parseTime(endStr);
+
+      if (openMin === null || closeMin === null) {
+        return { isOpen: false, badgeText: `🕒 ${todaySchedule}`, scheduleText: scheduleTooltip };
+      }
+
+      if (currentMinutes >= openMin && currentMinutes < closeMin) {
+        return {
+          isOpen: true,
+          badgeText: `🟢 Открыто (до ${endStr})`,
+          scheduleText: scheduleTooltip
+        };
+      } else {
+        return {
+          isOpen: false,
+          badgeText: '🔴 Закрыто',
+          scheduleText: scheduleTooltip
+        };
+      }
+    }
+
+    /********************************************************************
+     * 6. ОТРИСОВКА ИНТЕРФЕЙСА (РАДАР И АРХИВ)
+     ********************************************************************/
+    function switchView(view) {
+      currentView = view;
+      const tabRadar = document.getElementById('tab-radar');
+      const tabArchive = document.getElementById('tab-archive');
+      const viewRadar = document.getElementById('view-radar');
+      const viewArchive = document.getElementById('view-archive');
+      const categoryBar = document.getElementById('category-bar');
+
+      if (view === 'radar') {
+        tabRadar.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-900 shadow-sm transition';
+        tabArchive.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+        viewRadar.classList.remove('hidden');
+        viewArchive.classList.add('hidden');
+        categoryBar.classList.remove('hidden');
+      } else {
+        tabArchive.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-900 shadow-sm transition';
+        tabRadar.className = 'flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+        viewArchive.classList.remove('hidden');
+        viewRadar.classList.add('hidden');
+        categoryBar.classList.add('hidden');
+      }
+      renderAll();
+    }
+
+    function renderCategories() {
+      const bar = document.getElementById('category-bar');
+      bar.innerHTML = CATEGORIES.map(cat => {
+        const active = cat.label === selectedCategory;
+        const btnClass = active
+          ? 'bg-emerald-500 text-white font-semibold shadow-xs'
+          : 'bg-slate-700/80 text-slate-300 hover:bg-slate-700';
+        return `
+          <button onclick="selectCategory('${cat.label}')"
+            class="px-3 py-1 rounded-full text-xs whitespace-nowrap transition ${btnClass}">
+            ${cat.label}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectCategory(label) {
+      selectedCategory = label;
+      renderCategories();
+      renderAll();
+    }
+
+    function renderAll() {
+      const db = getDatabase();
+      const activeItems = db.filter(i => i.status === 'active');
+      const archivedItems = db.filter(i => i.status === 'archived');
+
+      document.getElementById('count-radar').textContent = activeItems.length;
+      document.getElementById('count-archive').textContent = archivedItems.length;
+
+      renderRadarList(activeItems);
+      renderArchiveList(archivedItems);
+    }
+
+    function renderRadarList(activeItems) {
+      const container = document.getElementById('view-radar');
+
+      // Фильтрация по выбранной категории
+      const catRule = CATEGORIES.find(c => c.label === selectedCategory) || CATEGORIES[0];
+      const filtered = activeItems.filter(item => {
+        if (selectedCategory === 'Все') return true;
+        return catRule.match.some(m => (item.category || '').toLowerCase().includes(m.toLowerCase()));
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl p-8 text-center shadow-xs border border-slate-200/80">
+            <div class="text-3xl mb-2">🧭</div>
+            <p class="text-sm font-semibold text-slate-700">На радаре пока пусто</p>
+            <p class="text-xs text-slate-500 mt-1">Нажмите «Импорт», чтобы вставить текст из чата с покупками или адресами Будапешта.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Для каждого товара находим ближайший филиал к пользователю
+      const enriched = filtered.map(item => {
+        const locs = Array.isArray(item.locations) && item.locations.length > 0
+          ? item.locations
+          : [{ name: 'Локация не указана', address: 'Будапешт', lat: 47.4979, lon: 19.0540, hours: {} }];
+
+        const sortedLocs = locs.map(loc => ({
+          ...loc,
+          distance: calculateHaversineMeters(userLocation.lat, userLocation.lon, loc.lat, loc.lon)
+        })).sort((a, b) => a.distance - b.distance);
+
+        return {
+          ...item,
+          closestLocation: sortedLocs[0],
+          totalBranches: sortedLocs.length
+        };
+      });
+
+      // Сортируем карточки от ближайшей к дальней
+      enriched.sort((a, b) => a.closestLocation.distance - b.closestLocation.distance);
+
+      container.innerHTML = enriched.map(item => {
+        const loc = item.closestLocation;
+        const hoursInfo = evaluateStoreHours(loc.hours);
+        const branchNote = item.totalBranches > 1
+          ? `<span class="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium">Ближайший из ${item.totalBranches} филиалов</span>`
+          : '';
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lon}&travelmode=walking`;
+
+        return `
+          <article class="bg-white rounded-2xl p-4 shadow-xs border border-slate-200/90 space-y-3">
+            <!-- Шапка карточки: магазин, адрес и крупное расстояние -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                    ${escapeHtml(item.category || 'Другое')}
+                  </span>
+                  ${branchNote}
+                </div>
+                <h3 class="text-sm font-bold text-slate-800 pt-1">🏪 ${escapeHtml(loc.name)}</h3>
+                <p class="text-xs text-slate-500">${escapeHtml(loc.address)}</p>
+              </div>
+
+              <div class="text-right shrink-0">
+                <div class="text-lg font-extrabold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-xl">
+                  ${formatDistance(loc.distance)}
+                </div>
+              </div>
+            </div>
+
+            <!-- Статус работы с кликабельной подсказкой расписания -->
+            <div>
+              <button onclick="toggleSchedule('${item.id}')"
+                class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border ${
+                  hoursInfo.isOpen
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }">
+                <span>${hoursInfo.badgeText}</span>
+                <span class="text-[10px] opacity-70">▾ График</span>
+              </button>
+              <div id="sched-${item.id}" class="hidden mt-1.5 p-2.5 rounded-xl bg-slate-800 text-white text-xs whitespace-pre-line">
+                ${escapeHtml(hoursInfo.scheduleText)}
+              </div>
+            </div>
+
+            <!-- Наименование товара -->
+            <div class="pt-1 border-t border-slate-100">
+              <h2 class="text-base font-extrabold text-slate-900">${escapeHtml(item.item)}</h2>
+            </div>
+
+            <!-- Блок Спецификация -->
+            <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-200/60 text-xs space-y-1">
+              <div class="font-bold text-slate-700">🔍 Спецификация:</div>
+              <p class="text-slate-600 leading-relaxed select-text">${escapeHtml(item.specs)}</p>
+            </div>
+
+            <!-- Блок На бирке / этикетке -->
+            <div class="bg-amber-50/70 rounded-xl p-2.5 border border-amber-200/70 text-xs space-y-1">
+              <div class="font-bold text-amber-900">🇭🇺 На бирке / этикетке:</div>
+              <p class="text-amber-950 font-medium leading-relaxed select-text">${escapeHtml(item.labels_hu)}</p>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="grid grid-cols-3 gap-2 pt-1">
+              <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer"
+                class="py-2 px-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-xs transition">
+                🗺 Маршрут
+              </a>
+              <button onclick="markAsArchived('${item.id}')"
+                class="py-2 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-xs transition">
+                ✅ Куплено
+              </button>
+              <button onclick="deleteItem('${item.id}')"
+                class="py-2 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center justify-center gap-1 transition">
+                ❌ Удалить
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderArchiveList(archivedItems) {
+      const container = document.getElementById('view-archive');
+
+      if (archivedItems.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl p-8 text-center shadow-xs border border-slate-200/80">
+            <div class="text-3xl mb-2">📦</div>
+            <p class="text-sm font-semibold text-slate-700">Архив покупок пуст</p>
+            <p class="text-xs text-slate-500 mt-1">Купленные товары появятся здесь после нажатия кнопки «✅ Куплено».</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Группировка по категориям
+      const grouped = {};
+      archivedItems.forEach(item => {
+        const cat = item.category || 'Другое';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+      });
+
+      container.innerHTML = Object.entries(grouped).map(([categoryName, items]) => {
+        const cardsHtml = items.map(item => {
+          const primaryStore = item.locations?.[0]?.name || 'Будапешт';
+          return `
+            <div class="bg-white rounded-xl p-3.5 shadow-xs border border-slate-200 flex flex-col gap-2.5">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800">${escapeHtml(item.item)}</h4>
+                <p class="text-xs text-slate-500 mt-0.5">🏪 ${escapeHtml(primaryStore)} • ${escapeHtml(item.specs)}</p>
+              </div>
+              <div class="flex gap-2">
+                <button onclick="restoreToActive('${item.id}')"
+                  class="flex-1 py-2 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition">
+                  🔄 Вернуть в список
+                </button>
+                <button onclick="deleteItem('${item.id}')"
+                  class="py-2 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition">
+                  🗑 Удалить навсегда
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">${escapeHtml(categoryName)}</h3>
+            <div class="space-y-2">${cardsHtml}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleSchedule(itemId) {
+      const el = document.getElementById(`sched-${itemId}`);
+      if (el) el.classList.toggle('hidden');
+    }
+
+    /********************************************************************
+     * 7. ДЕЙСТВИЯ С КАРТОЧКАМИ
+     ********************************************************************/
+    function markAsArchived(id) {
+      const db = getDatabase().map(item => item.id === id ? { ...item, status: 'archived' } : item);
+      saveDatabase(db);
+    }
+
+    function restoreToActive(id) {
+      const db = getDatabase().map(item => item.id === id ? { ...item, status: 'active' } : item);
+      saveDatabase(db);
+    }
+
+    function deleteItem(id) {
+      if (!confirm('Удалить запись из базы?')) return;
+      const db = getDatabase().filter(item => item.id !== id);
+      saveDatabase(db);
+    }
+
+    /********************************************************************
+     * 8. МОДУЛЬ «ВСЕЯДНЫЙ ИМПОРТ» (GEMINI 2.5 FLASH API)
+     ********************************************************************/
+    function openImportModal() {
+      document.getElementById('modal-import').classList.remove('hidden');
+      document.getElementById('import-status').classList.add('hidden');
+    }
+
+    function closeImportModal() {
+      document.getElementById('modal-import').classList.add('hidden');
+    }
+
+    async function pasteFromClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          document.getElementById('import-textarea').value = text;
+        }
+      } catch (err) {
+        alert('Браузер запросил ручную вставку: зажмите поле ввода и выберите «Вставить».');
+      }
+    }
+
+    async function handleImportSubmit() {
+      const rawText = document.getElementById('import-textarea').value.trim();
+      const statusBox = document.getElementById('import-status');
+      const btnParse = document.getElementById('btn-parse');
+
+      if (!rawText) {
+        showStatus('Вставьте текст для распознавания.', true);
+        return;
+      }
+
+      // Если пользователь вставил уже готовый JSON-массив или объект — парсим напрямую без расхода API
+      if (rawText.startsWith('[') || rawText.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(rawText);
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          if (arr[0] && arr[0].item) {
+            mergeImportedItems(arr);
+            document.getElementById('import-textarea').value = '';
+            closeImportModal();
+            return;
+          }
+        } catch (e) {
+          // Если это не валидный JSON Schema, передаем в Gemini
+        }
+      }
+
+      const apiKey = (localStorage.getItem(STORAGE_KEY_API) || '').trim();
+      if (!apiKey) {
+        showStatus('Сначала укажите бесплатный GEMINI_API_KEY в Настройках (иконка ⚙️ вверху).', true);
+        return;
+      }
+
+      btnParse.disabled = true;
+      btnParse.textContent = '⏳ Анализ текста...';
+      showStatus('Gemini 2.5 Flash извлекает товары, венгерские термины и координаты магазинов Будапешта...', false);
+
+      const systemPrompt = `Извлеки из текста все упомянутые товары, краткую спецификацию (specs), термины для венгерских этикеток (labels_hu) и магазины/рынки Будапешта. Для каждого магазина найди точный адрес, координаты (lat, lon) в Будапеште и базовый график работы (hours). Верни строгий JSON.
+
+Строгий формат выходного JSON (массив объектов):
+[
+  {
+    "item": "Название товара",
+    "category": "Одна из категорий: Одежда, Бакалея/Чай, Арт, Дом/Сад, Косметика/Аптека, Электроника, Другое",
+    "specs": "Краткие требования к качеству и характеристикам",
+    "labels_hu": "Точные венгерские термины для поиска на бирке и слова-исключения",
+    "status": "active",
+    "locations": [
+      {
+        "name": "Название магазина или рынка в Будапеште",
+        "address": "Точный адрес в Будапеште",
+        "lat": 47.4979,
+        "lon": 19.0540,
+        "hours": {
+          "mon_fri": "10:00-19:00",
+          "sat": "10:00-16:00",
+          "sun": "closed"
+        }
+      }
+    ]
+  }
+]`;
+
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              contents: [{ parts: [{ text: rawText }] }],
+              generationConfig: {
+                temperature: 0.1,
+                responseMimeType: 'application/json'
+              }
+            })
+          }
+        );
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `Ошибка HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        const modelText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!modelText) throw new Error('Пустой ответ от модели.');
+
+        const extracted = JSON.parse(modelText);
+        const itemsArray = Array.isArray(extracted) ? extracted : [extracted];
+
+        mergeImportedItems(itemsArray);
+        document.getElementById('import-textarea').value = '';
+        closeImportModal();
+        switchView('radar');
+      } catch (err) {
+        showStatus(`Ошибка распознавания: ${err.message}`, true);
+      } finally {
+        btnParse.disabled = false;
+        btnParse.textContent = '✨ Распознать';
+      }
+    }
+
+    function showStatus(msg, isError) {
+      const box = document.getElementById('import-status');
+      box.classList.remove('hidden');
+      box.className = isError
+        ? 'text-xs p-3 rounded-xl bg-rose-50 text-rose-800 border border-rose-200'
+        : 'text-xs p-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200';
+      box.textContent = msg;
+    }
+
+    /********************************************************************
+     * 9. НАСТРОЙКИ И РЕЗЕРВНОЕ КОПИРОВАНИЕ
+     ********************************************************************/
+    function openSettingsModal() {
+      document.getElementById('input-api-key').value = localStorage.getItem(STORAGE_KEY_API) || '';
+      document.getElementById('modal-settings').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('modal-settings').classList.add('hidden');
+    }
+
+    function saveSettings() {
+      const key = document.getElementById('input-api-key').value.trim();
+      localStorage.setItem(STORAGE_KEY_API, key);
+      closeSettingsModal();
+    }
+
+    function exportDatabase() {
+      const dataStr = JSON.stringify(getDatabase(), null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `smart_radar_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetToDemo() {
+      if (!confirm('Сбросить текущую базу и вернуть стартовую демо-карточку?')) return;
+      saveDatabase(INITIAL_DEMO_DATA);
+      closeSettingsModal();
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
