@@ -1,0 +1,19 @@
+{
+  "name": "Smart Radar Wishlist — Будапешт",
+  "short_name": "Radar BP",
+  "description": "Автономный геолокационный радар отложенных покупок в Будапеште",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%230f172a'/%3E%3Ccircle cx='256' cy='256' r='176' fill='none' stroke='%2310b981' stroke-width='20' opacity='0.35'/%3E%3Ccircle cx='256' cy='256' r='108' fill='none' stroke='%2310b981' stroke-width='20' opacity='0.65'/%3E%3Cline x1='256' y1='256' x2='380' y2='132' stroke='%2334d399' stroke-width='24' stroke-linecap='round'/%3E%3Ccircle cx='256' cy='256' r='28' fill='%2310b981'/%3E%3C/svg%3E",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
